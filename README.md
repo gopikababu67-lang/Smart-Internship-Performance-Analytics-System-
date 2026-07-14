@@ -57,7 +57,9 @@ http://localhost:8501
 
 ## Train or regenerate the model
 
-Run `train_model.py` to retrain the placement prediction model and regenerate the feature list:
+If `models/placement_model.pkl` or `models/feature_columns.pkl` are missing, the Streamlit app now attempts to train the model automatically from `data/combined_dataset_FINAL_CLEAN.xlsx`.
+
+If automatic generation fails, run `train_model.py` locally to retrain the placement prediction model and regenerate the feature list:
 
 ```powershell
 python train_model.py

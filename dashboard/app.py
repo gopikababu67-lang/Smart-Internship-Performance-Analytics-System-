@@ -5,6 +5,8 @@ import plotly.graph_objects as go
 import joblib
 import numpy as np
 import os
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
 
 st.set_page_config(
     page_title="Smart Internship Performance Analytics System",
@@ -72,6 +74,49 @@ def load_model(model_path, features_path):
     features = joblib.load(features_path)
     return model, features
 
+def build_model_files(data_path, model_path, features_path):
+    df = pd.read_excel(data_path)
+    branch_categories = list(pd.unique(df['branch']))
+    college_categories = list(pd.unique(df['college_tier']))
+
+    mapping = {'Male': 0, 'Female': 1, 'Other': 2}
+    X = pd.DataFrame({
+        'age': df['age'].astype(float),
+        'gender': df['gender'].map(mapping).fillna(2).astype(int),
+        'cgpa': df['cgpa'].astype(float),
+        'branch': df['branch'].map({v: i for i, v in enumerate(branch_categories)}).astype(int),
+        'college_tier': df['college_tier'].map({v: i for i, v in enumerate(college_categories)}).astype(int),
+        'internships': df['internships_count'].astype(float),
+        'projects': df['projects_count'].astype(float),
+        'certifications': df['certifications_count'].astype(float),
+        'coding_score': df['coding_skill_score'].astype(float),
+        'aptitude': df['aptitude_score'].astype(float),
+        'communication': df['communication_skill_score'].astype(float),
+        'hackathons': df['hackathons_participated'].astype(float),
+        'github_repos': df['github_repos'].astype(float),
+        'mock_interview': df['mock_interview_score'].astype(float),
+        'attendance': df['attendance_percentage'].astype(float),
+        'backlogs': df['backlogs'].astype(float),
+        'overall_skill': df['overall_skill_score'].astype(float),
+        'placement_readiness': df['placement_readiness'].astype(float),
+    })
+
+    y = df['placed_flag'].astype(int)
+    feature_cols = [
+        'age', 'gender', 'cgpa', 'branch', 'college_tier',
+        'internships', 'projects', 'certifications',
+        'coding_score', 'aptitude', 'communication',
+        'hackathons', 'github_repos', 'mock_interview',
+        'attendance', 'backlogs', 'overall_skill', 'placement_readiness'
+    ]
+
+    X = X[feature_cols]
+    model = RandomForestClassifier(n_estimators=150, random_state=42, n_jobs=-1, class_weight='balanced')
+    model.fit(X, y)
+    os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    joblib.dump(model, model_path)
+    joblib.dump(feature_cols, features_path)
+
 base_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(base_dir, '..'))
 possible_paths = [
@@ -92,11 +137,17 @@ if data_path is None:
 model_path = os.path.join(root_dir, "models", "placement_model.pkl")
 features_path = os.path.join(root_dir, "models", "feature_columns.pkl")
 if not os.path.exists(model_path) or not os.path.exists(features_path):
-    st.error(
-        "Cannot find model files in `models/`.\n"
-        "Place `placement_model.pkl` and `feature_columns.pkl` in the project's `models/` folder."
-    )
-    st.stop()
+    st.info("Model artifacts are missing. Training a new model now...")
+    try:
+        build_model_files(data_path, model_path, features_path)
+        st.success("Model files generated successfully. Restart the app if necessary.")
+    except Exception as exc:
+        st.error(
+            "Unable to generate model files automatically.\n"
+            "Please run `python train_model.py` locally or place the generated files in `models/`.\n"
+            f"Error: {exc}"
+        )
+        st.stop()
 
 
 df = load_data(data_path)
