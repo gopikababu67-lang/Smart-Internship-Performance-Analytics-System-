@@ -242,9 +242,25 @@ if page == "🏠 Overview Dashboard":
     with col1:
         st.markdown('<div class="section-title">Placement by Gender</div>', unsafe_allow_html=True)
         gender_place = dff.groupby(['gender','placement_status']).size().reset_index(name='count')
-        fig = px.bar(gender_place, x='gender', y='count', color='placement_status',
-                     color_discrete_sequence=['#aaaaaa','#0d7377'], barmode='group')
-        fig.update_layout(height=300, margin=dict(t=10,b=10))
+        gender_place['gender'] = gender_place['gender'].astype(str)
+        gender_place['placement_status'] = gender_place['placement_status'].astype(str)
+
+        status_order = [status for status in ['Not Placed', 'Placed'] if status in gender_place['placement_status'].unique()]
+        if not status_order:
+            status_order = list(gender_place['placement_status'].unique())
+
+        fig = go.Figure()
+        colors = ['#aaaaaa', '#0d7377']
+        for idx, status in enumerate(status_order):
+            subset = gender_place[gender_place['placement_status'] == status]
+            fig.add_trace(go.Bar(
+                x=subset['gender'],
+                y=subset['count'],
+                name=status,
+                marker_color=colors[idx % len(colors)]
+            ))
+
+        fig.update_layout(height=300, margin=dict(t=10, b=10), barmode='group')
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
