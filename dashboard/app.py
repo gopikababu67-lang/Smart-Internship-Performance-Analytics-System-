@@ -227,7 +227,7 @@ if page == "🏠 Overview Dashboard":
                      color_discrete_sequence=['#0d7377','#aaaaaa'],
                      hole=0.5)
         fig.update_layout(height=300, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with col2:
         st.markdown('<div class="section-title">Branch-wise Student Count</div>', unsafe_allow_html=True)
@@ -236,7 +236,7 @@ if page == "🏠 Overview Dashboard":
         fig = px.bar(branch_counts, x='count', y='branch', orientation='h',
                      color='count', color_continuous_scale='teal')
         fig.update_layout(height=300, margin=dict(t=10,b=10), showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     col1, col2 = st.columns(2)
     with col1:
@@ -261,14 +261,14 @@ if page == "🏠 Overview Dashboard":
             ))
 
         fig.update_layout(height=300, margin=dict(t=10, b=10), barmode='group')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with col2:
         st.markdown('<div class="section-title">CGPA Distribution</div>', unsafe_allow_html=True)
         fig = px.histogram(dff, x='cgpa', nbins=30,
                            color_discrete_sequence=['#0d7377'])
         fig.update_layout(height=300, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
 # ════════════════════════════════════════════════════════
 # PAGE 2 — EDA ANALYSIS
@@ -282,25 +282,53 @@ elif page == "📊 EDA Analysis":
         fig = px.histogram(dff, x='overall_skill_score', nbins=40,
                            color_discrete_sequence=['#14a085'])
         fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with col2:
         st.markdown('<div class="section-title">Attendance Distribution</div>', unsafe_allow_html=True)
         fig = px.histogram(dff, x='attendance_percentage', nbins=30,
                            color_discrete_sequence=['#0d7377'])
         fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div class="section-title">CGPA vs Placement Readiness</div>', unsafe_allow_html=True)
-        fig = px.scatter(dff.sample(min(2000, len(dff))),
-                         x='cgpa', y='placement_readiness',
-                         color='placement_status',
-                         color_discrete_sequence=['#aaaaaa','#0d7377'],
-                         opacity=0.5)
-        fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        required_cols = ['cgpa', 'placement_readiness', 'placement_status']
+        if not all(col in dff.columns for col in required_cols):
+            st.warning("Required columns for CGPA vs Placement Readiness visualization are missing.")
+        else:
+            scatter_data = dff.loc[:, required_cols].dropna().copy()
+            if pd.api.types.is_categorical_dtype(scatter_data['placement_status']):
+                scatter_data['placement_status'] = scatter_data['placement_status'].cat.remove_unused_categories()
+            scatter_data['placement_status'] = scatter_data['placement_status'].astype(str)
+            scatter_data = scatter_data.sample(min(2000, len(scatter_data))) if len(scatter_data) > 0 else scatter_data
+
+            if scatter_data.empty:
+                st.info("No records available for CGPA vs Placement Readiness.")
+            else:
+                if pd.api.types.is_categorical_dtype(scatter_data['placement_status']):
+                    scatter_data['placement_status'] = scatter_data['placement_status'].cat.remove_unused_categories()
+                scatter_data['placement_status'] = scatter_data['placement_status'].astype(str)
+                scatter_data = scatter_data.sample(min(2000, len(scatter_data)))
+
+                fig = go.Figure()
+                colors = {'Not Placed': '#aaaaaa', 'Placed': '#0d7377'}
+                for status in scatter_data['placement_status'].unique():
+                    subset = scatter_data[scatter_data['placement_status'] == status]
+                    if subset.empty:
+                        continue
+                    fig.add_trace(go.Scatter(
+                        x=subset['cgpa'],
+                        y=subset['placement_readiness'],
+                        mode='markers',
+                        name=status,
+                        marker=dict(color=colors.get(status, '#0d7377'), opacity=0.5, size=6),
+                        hovertemplate='CGPA: %{x}<br>Readiness: %{y}<br>Status: ' + status
+                    ))
+
+                fig.update_layout(height=280, margin=dict(t=10, b=10), xaxis_title='CGPA', yaxis_title='Placement Readiness')
+                st.plotly_chart(fig, width='stretch')
 
     with col2:
         st.markdown('<div class="section-title">Internships vs Placement Rate</div>', unsafe_allow_html=True)
@@ -309,7 +337,7 @@ elif page == "📊 EDA Analysis":
         fig = px.bar(intern_place, x='internships_count', y='placement_rate',
                      color='placement_rate', color_continuous_scale='teal')
         fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     col1, col2 = st.columns(2)
     with col1:
@@ -319,7 +347,7 @@ elif page == "📊 EDA Analysis":
         fig = px.bar(tier_place, x='college_tier', y='placement_rate',
                      color='placement_rate', color_continuous_scale='teal')
         fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with col2:
         st.markdown('<div class="section-title">Backlogs Impact on Placement</div>', unsafe_allow_html=True)
@@ -328,7 +356,7 @@ elif page == "📊 EDA Analysis":
         fig = px.line(backlog_place, x='backlogs', y='placement_rate',
                       markers=True, color_discrete_sequence=['#0d7377'])
         fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
 # ════════════════════════════════════════════════════════
 # PAGE 3 — ML PREDICTION
@@ -362,7 +390,7 @@ elif page == "🤖 ML Prediction":
     overall_skill = (coding_score + aptitude + communication + mock_interview) / 4
     placement_readiness = (cgpa * 10 + overall_skill) / 2
 
-    if st.button("🔮 Predict Placement", use_container_width=True):
+    if st.button("🔮 Predict Placement", width='stretch'):
         input_data = pd.DataFrame([[
             age,
             {"Male":0,"Female":1,"Other":2}.get(gender, 0),
@@ -405,7 +433,7 @@ elif page == "🤖 ML Prediction":
             }
         ))
         fig.update_layout(height=300)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
 # ════════════════════════════════════════════════════════
 # PAGE 4 — SKILL GAP ANALYSIS
@@ -458,7 +486,7 @@ elif page == "📈 Skill Gap Analysis":
         polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
         height=400, title="Your Skills vs Industry Average"
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     st.markdown('<div class="section-title">Your Skill Gaps</div>', unsafe_allow_html=True)
     for skill in categories:
