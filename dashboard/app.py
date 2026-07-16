@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -5,8 +6,6 @@ import plotly.graph_objects as go
 import joblib
 import numpy as np
 import os
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 
 st.set_page_config(
     page_title="Smart Internship Performance Analytics System",
@@ -65,93 +64,21 @@ st.markdown("""
 
 # ── Load Data ────────────────────────────────────────────
 @st.cache_data
-def load_data(path):
-    return pd.read_excel(path)
+def load_data():
+    path = "data/combined_dataset_FINAL_CLEAN.xlsx"
+    if not os.path.exists(path):
+        path = "combined_dataset_FINAL_CLEAN.xlsx"
+    df = pd.read_excel(path)
+    return df
 
 @st.cache_resource
-def load_model(model_path, features_path):
-    model = joblib.load(model_path)
-    features = joblib.load(features_path)
+def load_model():
+    model = joblib.load("models/placement_model.pkl")
+    features = joblib.load("models/feature_columns.pkl")
     return model, features
 
-def build_model_files(data_path, model_path, features_path):
-    df = pd.read_excel(data_path)
-    branch_categories = list(pd.unique(df['branch']))
-    college_categories = list(pd.unique(df['college_tier']))
-
-    mapping = {'Male': 0, 'Female': 1, 'Other': 2}
-    X = pd.DataFrame({
-        'age': df['age'].astype(float),
-        'gender': df['gender'].map(mapping).fillna(2).astype(int),
-        'cgpa': df['cgpa'].astype(float),
-        'branch': df['branch'].map({v: i for i, v in enumerate(branch_categories)}).astype(int),
-        'college_tier': df['college_tier'].map({v: i for i, v in enumerate(college_categories)}).astype(int),
-        'internships': df['internships_count'].astype(float),
-        'projects': df['projects_count'].astype(float),
-        'certifications': df['certifications_count'].astype(float),
-        'coding_score': df['coding_skill_score'].astype(float),
-        'aptitude': df['aptitude_score'].astype(float),
-        'communication': df['communication_skill_score'].astype(float),
-        'hackathons': df['hackathons_participated'].astype(float),
-        'github_repos': df['github_repos'].astype(float),
-        'mock_interview': df['mock_interview_score'].astype(float),
-        'attendance': df['attendance_percentage'].astype(float),
-        'backlogs': df['backlogs'].astype(float),
-        'overall_skill': df['overall_skill_score'].astype(float),
-        'placement_readiness': df['placement_readiness'].astype(float),
-    })
-
-    y = df['placed_flag'].astype(int)
-    feature_cols = [
-        'age', 'gender', 'cgpa', 'branch', 'college_tier',
-        'internships', 'projects', 'certifications',
-        'coding_score', 'aptitude', 'communication',
-        'hackathons', 'github_repos', 'mock_interview',
-        'attendance', 'backlogs', 'overall_skill', 'placement_readiness'
-    ]
-
-    X = X[feature_cols]
-    model = RandomForestClassifier(n_estimators=150, random_state=42, n_jobs=-1, class_weight='balanced')
-    model.fit(X, y)
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    joblib.dump(model, model_path)
-    joblib.dump(feature_cols, features_path)
-
-base_dir = os.path.dirname(os.path.abspath(__file__))
-root_dir = os.path.abspath(os.path.join(base_dir, '..'))
-possible_paths = [
-    os.path.join(root_dir, "data", "combined_dataset_FINAL_CLEAN.xlsx"),
-    os.path.join(root_dir, "combined_dataset_FINAL_CLEAN.xlsx"),
-    os.path.join(base_dir, "data", "combined_dataset_FINAL_CLEAN.xlsx"),
-    os.path.join(base_dir, "combined_dataset_FINAL_CLEAN.xlsx"),
-]
-
-data_path = next((p for p in possible_paths if os.path.exists(p)), None)
-if data_path is None:
-    st.error(
-        "Cannot find `combined_dataset_FINAL_CLEAN.xlsx`.\n"
-        "Place the file in the project root or in the `data/` folder next to `app.py`."
-    )
-    st.stop()
-
-model_path = os.path.join(root_dir, "models", "placement_model.pkl")
-features_path = os.path.join(root_dir, "models", "feature_columns.pkl")
-if not os.path.exists(model_path) or not os.path.exists(features_path):
-    st.info("Model artifacts are missing. Training a new model now...")
-    try:
-        build_model_files(data_path, model_path, features_path)
-        st.success("Model files generated successfully. Restart the app if necessary.")
-    except Exception as exc:
-        st.error(
-            "Unable to generate model files automatically.\n"
-            "Please run `python train_model.py` locally or place the generated files in `models/`.\n"
-            f"Error: {exc}"
-        )
-        st.stop()
-
-
-df = load_data(data_path)
-model, feature_cols = load_model(model_path, features_path)
+df = load_data()
+model, feature_cols = load_model()
 
 # ── Sidebar Navigation ───────────────────────────────────
 st.sidebar.markdown("## 🎓 SIPAS Navigation")
@@ -227,7 +154,7 @@ if page == "🏠 Overview Dashboard":
                      color_discrete_sequence=['#0d7377','#aaaaaa'],
                      hole=0.5)
         fig.update_layout(height=300, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='plotly_1')
 
     with col2:
         st.markdown('<div class="section-title">Branch-wise Student Count</div>', unsafe_allow_html=True)
@@ -236,7 +163,7 @@ if page == "🏠 Overview Dashboard":
         fig = px.bar(branch_counts, x='count', y='branch', orientation='h',
                      color='count', color_continuous_scale='teal')
         fig.update_layout(height=300, margin=dict(t=10,b=10), showlegend=False)
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='plotly_2')
 
     col1, col2 = st.columns(2)
     with col1:
@@ -250,25 +177,25 @@ if page == "🏠 Overview Dashboard":
             status_order = list(gender_place['placement_status'].unique())
 
         fig = go.Figure()
-        colors = ['#aaaaaa', '#0d7377']
-        for idx, status in enumerate(status_order):
+        colors = {'Not Placed': '#aaaaaa', 'Placed': '#0d7377'}
+        for status in status_order:
             subset = gender_place[gender_place['placement_status'] == status]
             fig.add_trace(go.Bar(
                 x=subset['gender'],
                 y=subset['count'],
                 name=status,
-                marker_color=colors[idx % len(colors)]
+                marker_color=colors.get(status, '#0d7377')
             ))
 
-        fig.update_layout(height=300, margin=dict(t=10, b=10), barmode='group')
-        st.plotly_chart(fig, width='stretch')
+        fig.update_layout(height=300, margin=dict(t=10,b=10), barmode='group')
+        st.plotly_chart(fig, width='stretch', key='plotly_3')
 
     with col2:
         st.markdown('<div class="section-title">CGPA Distribution</div>', unsafe_allow_html=True)
         fig = px.histogram(dff, x='cgpa', nbins=30,
                            color_discrete_sequence=['#0d7377'])
         fig.update_layout(height=300, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='plotly_4')
 
 # ════════════════════════════════════════════════════════
 # PAGE 2 — EDA ANALYSIS
@@ -282,14 +209,14 @@ elif page == "📊 EDA Analysis":
         fig = px.histogram(dff, x='overall_skill_score', nbins=40,
                            color_discrete_sequence=['#14a085'])
         fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='plotly_5')
 
     with col2:
         st.markdown('<div class="section-title">Attendance Distribution</div>', unsafe_allow_html=True)
         fig = px.histogram(dff, x='attendance_percentage', nbins=30,
                            color_discrete_sequence=['#0d7377'])
         fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='plotly_6')
 
     col1, col2 = st.columns(2)
     with col1:
@@ -299,11 +226,6 @@ elif page == "📊 EDA Analysis":
             st.warning("Required columns for CGPA vs Placement Readiness visualization are missing.")
         else:
             scatter_data = dff.loc[:, required_cols].dropna().copy()
-            if pd.api.types.is_categorical_dtype(scatter_data['placement_status']):
-                scatter_data['placement_status'] = scatter_data['placement_status'].cat.remove_unused_categories()
-            scatter_data['placement_status'] = scatter_data['placement_status'].astype(str)
-            scatter_data = scatter_data.sample(min(2000, len(scatter_data))) if len(scatter_data) > 0 else scatter_data
-
             if scatter_data.empty:
                 st.info("No records available for CGPA vs Placement Readiness.")
             else:
@@ -327,8 +249,11 @@ elif page == "📊 EDA Analysis":
                         hovertemplate='CGPA: %{x}<br>Readiness: %{y}<br>Status: ' + status
                     ))
 
-                fig.update_layout(height=280, margin=dict(t=10, b=10), xaxis_title='CGPA', yaxis_title='Placement Readiness')
-                st.plotly_chart(fig, width='stretch')
+                fig.update_layout(height=280, margin=dict(t=10,b=10), xaxis_title='CGPA', yaxis_title='Placement Readiness')
+                st.plotly_chart(fig, width='stretch', key='plotly_7')
+
+                fig.update_layout(height=280, margin=dict(t=10,b=10), xaxis_title='CGPA', yaxis_title='Placement Readiness')
+                st.plotly_chart(fig, width='stretch', key='plotly_8')
 
     with col2:
         st.markdown('<div class="section-title">Internships vs Placement Rate</div>', unsafe_allow_html=True)
@@ -337,7 +262,7 @@ elif page == "📊 EDA Analysis":
         fig = px.bar(intern_place, x='internships_count', y='placement_rate',
                      color='placement_rate', color_continuous_scale='teal')
         fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='plotly_9')
 
     col1, col2 = st.columns(2)
     with col1:
@@ -347,7 +272,7 @@ elif page == "📊 EDA Analysis":
         fig = px.bar(tier_place, x='college_tier', y='placement_rate',
                      color='placement_rate', color_continuous_scale='teal')
         fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='plotly_10')
 
     with col2:
         st.markdown('<div class="section-title">Backlogs Impact on Placement</div>', unsafe_allow_html=True)
@@ -356,7 +281,7 @@ elif page == "📊 EDA Analysis":
         fig = px.line(backlog_place, x='backlogs', y='placement_rate',
                       markers=True, color_discrete_sequence=['#0d7377'])
         fig.update_layout(height=280, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='plotly_11')
 
 # ════════════════════════════════════════════════════════
 # PAGE 3 — ML PREDICTION
@@ -433,7 +358,7 @@ elif page == "🤖 ML Prediction":
             }
         ))
         fig.update_layout(height=300)
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='plotly_12')
 
 # ════════════════════════════════════════════════════════
 # PAGE 4 — SKILL GAP ANALYSIS
@@ -486,7 +411,7 @@ elif page == "📈 Skill Gap Analysis":
         polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
         height=400, title="Your Skills vs Industry Average"
     )
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, width='stretch', key='plotly_13')
 
     st.markdown('<div class="section-title">Your Skill Gaps</div>', unsafe_allow_html=True)
     for skill in categories:
